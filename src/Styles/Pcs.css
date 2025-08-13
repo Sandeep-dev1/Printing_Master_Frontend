@@ -363,6 +363,18 @@
                   }
 
               }
+              .Pcs_Container_Grid_PI_details_fileType_is_split {
+
+                  select,
+                  option {
+                      padding: 7px;
+                      margin: 5px;
+                      border: 1px solid #ddd;
+                      border-radius: 5px;
+                      background-color: #fff;
+                  }
+
+              }
 
               .Pcs_Container_Grid_PI_details_GeneratedButton {
                   margin-top: 20px;

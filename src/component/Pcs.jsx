@@ -11,6 +11,7 @@ import axios, { all } from "axios";
 import { LogInsert, Server, FileGeneration } from '../App';
 import { MdClose } from 'react-icons/md';
 import Cookies from 'js-cookie';
+import moment from 'moment';
 
 const Pcs = () => {
 
@@ -19,13 +20,18 @@ const Pcs = () => {
     const [filteredPiNumbers, setFilteredPiNumbers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('ALL');
     const [selectedShift, setselectedShift] = useState("ALL");
+    const [selectedDate, setselectedDate] = useState("ALL");
     const [SelectedFIleType, setSelectedFIleType] = useState('');
+    const [isSplitValue, setIsSplitValue] = useState('false');
     const [XmlFile, setXmlFile] = useState('')
     const [userName, setUserName] = useState('');
     const [UserFirstName, setUserFirstName] = useState('');
     const [userLastName, setuserLastName] = useState('');
     const [MachineNO, setMachineNO] = useState('');
     const [UserRole, setUserRole] = useState('');
+    const [selectedpiquantity, setselectedpiquantity] = useState('');
+    const [plandate, setplandate] = useState('');
+    const [expecteddeliverydate, setexpecteddeliverydate] = useState('');
     const [piDetails, setPiDetails] = useState([]);
     const [selectedRows, setSelectedRows] = useState(new Set());
     const [isSelectAllChecked, setIsSelectAllChecked] = useState(false);
@@ -44,9 +50,12 @@ const Pcs = () => {
     const [ShowFgPage, setShowFgPage] = useState(false);
     const [fgCodes, setFgCodes] = useState({});
     const [showLoaderForfile, setShowLoaderForFile] = useState(false);
+    const [showLoaderforpigrid, setshowLoaderforpigrid] = useState(false);
     const [selectedData, setSelectedData] = useState(null);
     const [percentageDiff, setpercentageDiff] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [customDate, setCustomDate] = useState('');
+
     const navigate = useNavigate();
     const timerRef = useRef(null);
 
@@ -89,8 +98,20 @@ const Pcs = () => {
         //     toast.warn(`Please update the ${toPrintPI} PI before selecting another.`);
         //     return;
         // }
+        setselectedpiquantity('');
+        setplandate('');
+        setexpecteddeliverydate('');
         setSelectedItem(piNumber);
+        setIsSplitValue('false');
         const selectedPi = filteredPiNumbers.find(item => item.pi_number === piNumber);
+        console.log('selectedpidata', selectedPi.planned_qty)
+        if (selectedPi) {
+            setselectedpiquantity(selectedPi.planned_qty)
+            setplandate(selectedPi.date)
+            setexpecteddeliverydate(selectedPi.expected_delivery_date)
+        }
+        if (selectedPi) {
+        }
         if (selectedPi && selectedPi.status === 'To-Print') {
             setIsUpdateDisabled(false);
         } else {
@@ -192,7 +213,7 @@ const Pcs = () => {
 
         if (MachineNO || refetchData) {
             const fetchData = async () => {
-
+                setshowLoaderforpigrid(true);
                 try {
                     const response = await axios.get(`${Server}/api/Printing_API/getPINumber?machine=${MachineNO}`);
                     const piData = response.data;
@@ -204,10 +225,11 @@ const Pcs = () => {
                     //     }
                     // }
                     setGetPiNumber(piData);
-                    // filterPiNumbers(selectedCustomer, piData);
-                    filterPiNumbers(selectedCustomer, selectedShift, piData, searchQuery);
-                    console.log("GetPI Number", piData);
 
+                    // filterPiNumbers(selectedCustomer, piData);
+                    filterPiNumbers(selectedCustomer, selectedShift, piData, searchQuery, selectedDate, customDate);
+                    console.log("GetPI Number", piData);
+                    setshowLoaderforpigrid(false);
                     // Reset refetchData after fetching
                     setRefetchData(false);
                 } catch (error) {
@@ -218,75 +240,110 @@ const Pcs = () => {
             fetchData();
 
         }
-    }, [MachineNO, selectedCustomer, refetchData,]);
+    }, [MachineNO, refetchData]);
+
+    // selectedCustomer, selectedShift, selectedDate, customDate, searchQuery,
 
 
-    const filterPiNumbers = (customer, shift, piData, searchQuery) => {
-        // Filter PI numbers by customer
-        let filtered = piData.filter(item => {
-            return customer === 'ALL' || item.brand === customer;
-        });
+    const filterPiNumbers = (customer, shift, piData, searchQuery, selectedDate, customDate = null) => {
+        let filtered = piData;
 
-        // Filter by shift
-        filtered = filtered.filter(item => {
-            return shift === 'ALL' || item.shift === shift;
-        });
-
-        // Filter by search query 
-        if (searchQuery) {
-            filtered = filtered.filter(item => {
-                return item.pi_number.toLowerCase().includes(searchQuery.toLowerCase());
-            });
+        // Customer filter
+        if (customer !== 'ALL') {
+            filtered = filtered.filter(item => item.brand === customer);
         }
 
-        // Separate "To-Print" and "To-be-Printed" items
-        const toBePrinted = filtered.filter(item => item.status === "To-be-Printed");
-        const toPrint = filtered.filter(item => item.status === "To-Print");
+        // Shift filter
+        if (shift !== 'ALL') {
+            filtered = filtered.filter(item => item.shift === shift);
+        }
 
-        // Combine filtered PI numbers
+        // Date filter
+        if (selectedDate !== 'ALL') {
+            const today = moment().startOf('day');
+            let startDate = null;
+            let endDate = moment().endOf('day'); // default
+
+            switch (selectedDate) {
+                case 'Today':
+                    startDate = today;
+                    break;
+                case 'Yesterday':
+                    startDate = moment().subtract(1, 'days').startOf('day');
+                    endDate = moment().subtract(1, 'days').endOf('day');
+                    break;
+                case 'Custom date':
+                    if (customDate) {
+                        startDate = moment(customDate, 'YYYY-MM-DD').startOf('day');
+                        endDate = moment(customDate, 'YYYY-MM-DD').endOf('day');
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            if (startDate) {
+                filtered = filtered.filter(item => {
+                    const itemDate = moment(item.date, 'DD-MM-YYYY'); // Parse string to date
+                    return itemDate.isBetween(startDate, endDate, undefined, '[]'); // inclusive
+                });
+            }
+        }
+
+        // Search query filter
+        if (searchQuery) {
+            filtered = filtered.filter(item =>
+                item.pi_number.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Status-based grouping
+        const toBePrinted = filtered.filter(item => item.status === 'To-be-Printed');
+        const toPrint = filtered.filter(item => item.status === 'To-Print');
+
         setFilteredPiNumbers([...toPrint, ...toBePrinted]);
-
-        // Check for "To-Print" PI and show alert if found
-        // const toPrintPI = toPrint[0];
-        // if (toPrintPI) {
-        //     Swal.fire(
-        //         '',
-        //         `${toPrintPI.pi_number} is a To-Print PI. Please update it before proceeding.`,
-        //         'info'
-        //     );
-        // }
     };
 
     const handleCustomerChange = (e) => {
         const customer = e.target.value;
         setSelectedCustomer(customer);
         setSelectedItem('')
-        filterPiNumbers(customer, selectedShift, getPiNumber, searchQuery);
+        filterPiNumbers(customer, selectedShift, getPiNumber, searchQuery, selectedDate, customDate);
     };
 
     const handleShift = (e) => {
         const shift = e.target.value;
         setselectedShift(shift);
         setSelectedItem('')
-        filterPiNumbers(selectedCustomer, shift, getPiNumber, searchQuery);
+        filterPiNumbers(selectedCustomer, shift, getPiNumber, searchQuery, selectedDate, customDate);
     };
 
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value)
-        filterPiNumbers(selectedCustomer, selectedShift, getPiNumber, e.target.value);
+        filterPiNumbers(selectedCustomer, selectedShift, getPiNumber, e.target.value, selectedDate, customDate);
 
     }
+
+    const handledate = (e) => {
+        const value = e.target.value;
+        setselectedDate(value);
+        setSelectedItem('');
+
+        // If custom date not selected yet, just send null
+        filterPiNumbers(selectedCustomer, selectedShift, getPiNumber, searchQuery, value, customDate);
+    };
 
     const handleGenerated = async () => {
         setShowLoaderForFile(true);
         try {
-            console.log('fileOutputType', SelectedFIleType)
+            console.log('fileOutputType', SelectedFIleType, '| is_splitvalues', isSplitValue)
 
             const response = await axios.post(`${FileGeneration}/api/Printing_API/file_generation`,
                 {
                     "pi_number": selectedItem,
                     "file_output_type": SelectedFIleType,
-                    "machine": MachineNO
+                    "machine": MachineNO,
+                    "is_split": isSplitValue
                 },
                 {
                     headers: {
@@ -339,81 +396,21 @@ const Pcs = () => {
     }, [selectedItem, piDetails, getPiNumber]);
 
 
+    useEffect(() => {
+        if (selectedItem.startsWith('WEL') || selectedItem.startsWith('NV') || selectedItem.startsWith('HP')) {
+            if (selectedpiquantity > 50000) {
+                setIsSplitValue('true');
+            }
+        }
+        else {
+            setIsSplitValue('false');
+        }
+    }, [selectedpiquantity, selectedItem]);
+
+
     const handleAllocate = async () => {
         setShowFgPage(true)
         setIsAllocateDisabled(true);
-
-        // setShowLoader(true);
-
-        // // Convert selectedRows Set to an array and map to the required format
-        // const selectedData = Array.from(selectedRows).map(index => {
-        //     const detail = piDetails[index];
-        //     console.log("detail selected data ", detail)
-
-        //     let FileOutputType = '';
-        //     if (MachineNO.includes('PL')) {
-        //         FileOutputType = 'xml';
-        //     } else if (MachineNO.includes('SIM') || MachineNO.includes('CLS')) {
-        //         FileOutputType = 'excel';
-        //     }
-
-        //     return {
-        //         pi_number: selectedItem || '',
-        //         ean_number: detail.article_number || '',
-        //         purch_order: detail.purchorder || detail.category2 || detail.po_number || '',
-        //         quantity: detail.quantity || '',
-        //         file_output_type: FileOutputType,
-        //         machine: MachineNO || '',
-        //         version_no: '2.2.1',
-        //         operator: `${UserFirstName} ${userLastName}` || ''
-        //     };
-        // })
-
-        // const requestData = { insertData: selectedData };
-        // console.log("requestData EPC", requestData);
-
-        // try {
-        //     const response = await axios.post(`${Server}/api/Printing_API/epc_generation`, requestData, {
-        //         headers: {
-        //             'Content-Type': 'application/json',
-        //         }
-        //     });
-
-        //     if (response.statusText === "OK") {
-        //         const epcData = response.data;
-        //         console.log("EPC Generated", epcData);
-        //         setIsAllocateClicked(true);
-        //         setIsUpdateDisabled(true);
-        //         setIsAllocateDisabled(true);
-        //         setGetEPC(epcData);
-
-        //         Swal.fire({
-        //             icon: 'success',
-        //             title: 'Success',
-        //             text: 'EPC Has Been Successfully Generated! Then click on update ',
-        //             showConfirmButton: false,
-        //             timer: 3000, // 3 seconds
-        //             background: '#f0f0f0',
-        //             customClass: {
-        //                 title: 'swal2-title',
-        //                 popup: 'swal2-popup',
-        //                 icon: 'swal2-icon'
-        //             }
-        //         });
-        //     } else {
-        //         toast.error('EPC Has Not Been Updated!');
-        //     }
-        // } catch (error) {
-        //     if (error.response.data.detail) {
-        //         toast.error(error.response.data.detail);
-        //     } else {
-        //         toast.error('An error occurred during login.');
-        //     }
-        //     console.error(error);
-        // } finally {
-        //     setShowLoader(false);
-        //     setRefetchData(true);
-        // }
     };
 
     const handleCopyFGCode = (sourceIndex) => {
@@ -424,9 +421,9 @@ const Pcs = () => {
         // }
 
         if (!valueToCopy || valueToCopy.length < 2 || valueToCopy.length > 3) {
-              Swal.fire("Invalid FG Code", "Enter a valid 2 or 3-digit number before copying.", "warning");
-              return;
-            }
+            Swal.fire("Invalid FG Code", "Enter a valid 2 or 3-digit number before copying.", "warning");
+            return;
+        }
 
         setFgCodes((prev) => {
             const updated = { ...prev };
@@ -437,33 +434,33 @@ const Pcs = () => {
         });
     };
 
-    const handleclosefg=async()=>{
+    const handleclosefg = async () => {
         setShowFgPage(false)
         setIsAllocateDisabled(false)
     }
 
 
     const handleFgCodeSubmit = async () => {
-            // 🔍 Find all invalid FG code rows
-    const invalidFGRows = Array.from(selectedRows).filter(
-        (index) => !fgCodes[index] || fgCodes[index].length < 2 || fgCodes[index].length > 3
-      );
-  
-      if (invalidFGRows.length > 0) {
-        const rowDetails = invalidFGRows.map((index) => {
-          const detail = piDetails[index];
-          console.log('detail',detail)
-          return `Row ${index + 1} (Article: ${detail.article_number || "N/A"})`;
-        });
-  
-        Swal.fire(
-          "Invalid FG Codes",
-          `\n\n${rowDetails.join("\n")}`,
-          "warning"
+        // 🔍 Find all invalid FG code rows
+        const invalidFGRows = Array.from(selectedRows).filter(
+            (index) => !fgCodes[index] || fgCodes[index].length < 2 || fgCodes[index].length > 3
         );
-        return;
-      } 
-        setShowFgPage(false); 
+
+        if (invalidFGRows.length > 0) {
+            const rowDetails = invalidFGRows.map((index) => {
+                const detail = piDetails[index];
+                console.log('detail', detail)
+                return `Row ${index + 1} (Article: ${detail.article_number || "N/A"})`;
+            });
+
+            Swal.fire(
+                "Invalid FG Codes",
+                `\n\n${rowDetails.join("\n")}`,
+                "warning"
+            );
+            return;
+        }
+        setShowFgPage(false);
         setShowLoader(true);
 
         // Convert selectedRows Set to an array and map to the required format
@@ -480,7 +477,7 @@ const Pcs = () => {
 
             return {
                 pi_number: selectedItem || '',
-                fg_code: fgCodes[index] || '', 
+                fg_code: fgCodes[index] || '',
                 ean_number: detail.article_number || '',
                 purch_order: detail.purchorder || detail.category2 || detail.po_number || '',
                 quantity: detail.quantity || '',
@@ -632,18 +629,18 @@ const Pcs = () => {
 
             setSelectedItem('')
 
-            await logInsert(selectedData.pi_number, forceUpdateResponse.data.res_check.diff, percentageDiff);
+            await logInsert(forceUpdateData, forceUpdateResponse.data.res_check.diff, percentageDiff);
         } catch (error) {
             toast.error(error.response.data.detail);
             // console.error("Error during force update:", error);
         }
     };
 
-    const logInsert = async (pi_number, diff, percentageDiff) => {
+    const logInsert = async (forceUpdateData, diff, percentageDiff) => {
         console.log("percentageDiffinlog", percentageDiff)
         try {
             const LogInsertResponse = await axios.post(
-                `${LogInsert}/api/log_insert/?software=PrintingMaster&type=INFO&details=${UserFirstName} has Force Updated pi_number=${pi_number} Differences ${diff} Qty  Differences  ${percentageDiff} % .`,
+                `${LogInsert}/api/log_insert/?software=PrintingMaster&type=Force Updated&details=${UserFirstName} has Force Updated ${JSON.stringify(forceUpdateData)} Differences ${diff} Qty.`,
                 { headers: { 'Content-Type': 'application/json' } }
             );
             console.log('LogInsertResponse', LogInsertResponse.data.message);
@@ -782,6 +779,8 @@ const Pcs = () => {
                     <option value="">Select File Type</option>
                     <option value="SINGLE">SINGLE</option>
                     <option value="SIZEWISE">SIZEWISE</option>
+                    <option value="pantone">PANTONE</option>
+                    <option value="COLORWISE">COLORWISE</option>
 
                 </>
             );
@@ -821,7 +820,7 @@ const Pcs = () => {
                 </>
             );
         }
-        if (selectedItem.startsWith('SN') || selectedItem.startsWith('FP') || selectedItem.startsWith('CG') || selectedItem.startsWith('IH') || selectedItem.startsWith('GC') ){
+        if (selectedItem.startsWith('SN') || selectedItem.startsWith('FP') || selectedItem.startsWith('CG') || selectedItem.startsWith('IH') || selectedItem.startsWith('GC') || selectedItem.startsWith('SH') || selectedItem.startsWith('MN') || selectedItem.startsWith('CL')) {
             return (
                 <>
                     <option value="">Select File Type</option>
@@ -954,8 +953,32 @@ const Pcs = () => {
                             <option value="CG">Creative Garments</option>
                             <option value="FP">Focus Prints</option>
                             <option value="SN">Snitch</option>
+                            <option value="SH">Sheridan</option>
+                            <option value="MN">MANACA</option>
+                            <option value="CL">Continuity Label</option>
                         </select>
                     </div>
+                    <div className="Pcs_Container_Header_companyName">
+                        <label>Date:</label>
+                        <select value={selectedDate} onChange={handledate}>
+                            <option value="ALL">ALL</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Custom date">Custom Date</option>
+                        </select>
+
+                        {selectedDate === 'Custom date' && (
+                            <input
+                                type="date"
+                                value={customDate}
+                                onChange={(e) => {
+                                    setCustomDate(e.target.value);
+                                    filterPiNumbers(selectedCustomer, selectedShift, getPiNumber, searchQuery, 'Custom date', e.target.value);
+                                }}
+                            />
+                        )}
+                    </div>
+
                     <div className="Pcs_Container_Header_companyName">
                         <label>Shift:</label>
                         <select value={selectedShift} onChange={handleShift}>
@@ -967,7 +990,14 @@ const Pcs = () => {
                     </div>
                     <div className='Pcs_Container_Header_machine_no'><h6>Machine No-{MachineNO}</h6></div>
                     <div className='Pcs_Container_Header_Username'>
-                        <CgProfile color='rgb(57, 112, 231)' size={30} />
+                        {/* <CgProfile color='rgb(57, 112, 231)' size={30} /> */}
+                        <lord-icon
+                            // src="https://cdn.lordicon.com/kdduutaw.json"
+                            src="https://cdn.lordicon.com/cniwvohj.json"
+                            trigger="in"
+                            colors="primary:#3970E7,secondary:#08a88a"
+                            style={{ width: '40px', height: '40px' }}
+                        ></lord-icon>
                         <h3>{UserFirstName} {userLastName}</h3>
                         <FiLogOut
                             color='orange'
@@ -980,6 +1010,15 @@ const Pcs = () => {
                 <input className='Pcs_Container_Grid_search' typeof='text' placeholder='Search PI Number' value={searchQuery} onChange={handleSearchChange}></input>
                 <div className='Pcs_Container_Grid'>
                     <div className='Pcs_Container_Grid_PI'>
+                        {showLoaderforpigrid && (
+                            <div className="CreateLoader" style={{
+                                marginLeft: '16%',
+                                marginTop: '6%',
+                            }}>
+                                <span className="loader"></span>
+                                <h6>Please Wait,Loading PI...</h6>
+                            </div>
+                        )}
                         {filteredPiNumbers.map((piNumberObj, index) => {
                             const piNumber = piNumberObj.pi_number;
                             const isSelected = piNumber === selectedItem;
@@ -1003,6 +1042,7 @@ const Pcs = () => {
                         {selectedItem && (
                             <div className='Pcs_Container_Grid_PI_details_heading'>
                                 <h6>Select Pi No - {selectedItem}</h6>
+                                <p>Quantity - {selectedpiquantity} & Plan Date - {plandate} {expecteddeliverydate && `& EDD - ${expecteddeliverydate}`}</p>
                             </div>
                         )}
                         {isAllocateClicked && selectedItem && (
@@ -1013,6 +1053,22 @@ const Pcs = () => {
                                         {getOptions()}
                                     </select>
                                 </div>
+                                {SelectedFIleType && (
+                                    (selectedItem.startsWith('WEL') || selectedItem.startsWith('NV') || selectedItem.startsWith('HP')) && (
+                                        <div className="Pcs_Container_Grid_PI_details_fileType_is_split">
+                                            <label>XML in splits of 5000?</label>
+                                            <select
+                                                value={isSplitValue}
+                                                onChange={(e) => setIsSplitValue(e.target.value)}
+                                                disabled={selectedpiquantity > 50000}
+                                            >
+                                                <option value="true">Yes</option>
+                                                {selectedpiquantity <= 50000 && <option value="false">No</option>}
+                                            </select>
+                                        </div>
+                                    )
+                                )}
+
                                 {SelectedFIleType && (
                                     <div className='Pcs_Container_Grid_PI_details_GeneratedButton'>
                                         <button onClick={handleGenerated}>{MachineNO === "PL" ? ' Generate Xml File' : 'Generate Excel file'}</button>
@@ -1043,7 +1099,7 @@ const Pcs = () => {
                         onClick={handleUpdate}>Update</button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

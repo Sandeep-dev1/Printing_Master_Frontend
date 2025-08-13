@@ -6,6 +6,12 @@ import App from './App.jsx'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+
+import lottie from 'lottie-web';
+import { defineElement } from '@lordicon/element';
+
+defineElement(lottie.loadAnimation);
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

@@ -76,6 +76,7 @@ const Home = () => {
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [batch_no, setbatch_no] = useState("");
   const [ShowBatch, setShowBatch] = useState(false);
+  const [showLoaderforpigrid, setshowLoaderforpigrid] = useState(false);
   const [TataUpdate, setTataUpdate] = useState(false);
   const [selectedData, setSelectedData] = useState(null);
   const [percentageDiff, setpercentageDiff] = useState(null);
@@ -217,6 +218,8 @@ const Home = () => {
   useEffect(() => {
     if (MachineNO || refetchData) {
       const fetchData = async () => {
+        setshowLoaderforpigrid(true);
+
         try {
           const response = await axios.get(
             `${Server}/api/Printing_API/getPINumber?machine=${MachineNO}`
@@ -239,6 +242,8 @@ const Home = () => {
           // filterShift(selectedShift, piData);
           filterPiNumbers(selectedCustomer, selectedShift, piData, searchQuery);
           console.log("GetPI Number", piData);
+          console.log("selectedCustomer", selectedCustomer);
+          setshowLoaderforpigrid(false);
           // Reset refetchData after fetching
           setRefetchData(false);
         } catch (error) {
@@ -278,6 +283,7 @@ const Home = () => {
 
   const handleCustomerChange = (e) => {
     const customer = e.target.value;
+    console.log(customer)
     setSelectedCustomer(customer);
     setPiDetails([]);
     setSelectedItem('')
@@ -336,7 +342,7 @@ const Home = () => {
     if (invalidFGRows.length > 0) {
       const rowDetails = invalidFGRows.map((index) => {
         const detail = piDetails[index];
-        console.log('detail',detail)
+        console.log('detail', detail)
         return `Row ${index + 1} (Article: ${detail.article_number || "N/A"})`;
       });
 
@@ -471,7 +477,7 @@ const Home = () => {
   const handleUpdate = async () => {
     setFgCodes('')
     try {
-      // console.log("Enter in handle update function");
+      console.log("Enter in handle update function");
       const eanNumbers = Array.from(selectedRows).map((index) => {
         const detail = piDetails[index];
         return detail.article_number;
@@ -608,17 +614,17 @@ const Home = () => {
       setRefetchData(true);
       await fetchPIDetails(selectedItem);
 
-      await logInsert(selectedData.pi_number, forceUpdateResponse.data.res_check.diff, percentageDiff);
+      await logInsert(forceUpdateData, forceUpdateResponse.data.res_check.diff, percentageDiff);
     } catch (error) {
       // console.error("Error during force update:", error);
       toast.error(error.response.data.detail);
     }
   };
 
-  const logInsert = async (pi_number, diff, percentageDiff) => {
+  const logInsert = async (forceUpdateData, diff, percentageDiff) => {
     try {
       const LogInsertResponse = await axios.post(
-        `${LogInsert}/api/log_insert/?software=PrintingMaster&type=INFO&details=${UserFirstName} has Force Updated pi_number=${pi_number}  Differences ${diff} Qty  Differences  ${percentageDiff} %.`,
+        `${LogInsert}/api/log_insert/?software=PrintingMaster&type=Force Updated&details=${UserFirstName} has Force Updated ${JSON.stringify(forceUpdateData)} Differences ${diff} Qty.`,
         { headers: { 'Content-Type': 'application/json' } }
       );
       console.log('LogInsertResponse', LogInsertResponse.data.message);
@@ -896,6 +902,9 @@ const Home = () => {
               <option value="CG">Creative Garments</option>
               <option value="FP">Focus Prints</option>
               <option value="SN">Snitch</option>
+              <option value="SH">Sheridan</option>
+              <option value="MN">Manaca</option>
+              <option value="CL">Continuity Label</option>
             </select>
           </div>
           <div className="Container_Header_companyName">
@@ -911,10 +920,30 @@ const Home = () => {
             <h6>Machine No-{MachineNO}</h6>
           </div>
           <div className="Container_Header_Username">
-            <CgProfile color="rgb(57, 112, 231)" size={30} />
+            {/* <CgProfile color="rgb(57, 112, 231)" size={30} /> */}
+
+            <lord-icon
+              // src="https://cdn.lordicon.com/kdduutaw.json"
+              src="https://cdn.lordicon.com/cniwvohj.json"
+              trigger="in"
+              colors="primary:#3970E7,secondary:#08a88a"
+              style={{ width: '40px', height: '40px' }}
+            ></lord-icon>
+
             <h3>
               {UserFirstName} {userLastName}
             </h3>
+            {/* <lord-icon
+              // src="https://cdn.lordicon.com/kdduutaw.json"
+              src="https://cdn.lordicon.com/jzzzcrxv.json"
+              trigger="hover"
+              stroke="bold"
+              colors="primary:#FF8C00,secondary:#FF8C00"
+              style={{ width: '40px', height: '40px' }}
+              cursor="pointer"
+              onClick={handleLogout}
+            ></lord-icon> */}
+
             <FiLogOut
               color="orange"
               size={30}
@@ -926,6 +955,15 @@ const Home = () => {
         <input className='Container_Grid__search' typeof='text' placeholder='Search PI Number' value={searchQuery} onChange={handleSearchChange}></input>
         <div className="Container_Grid">
           <div className="Container_Grid_PI">
+            {showLoaderforpigrid && (
+              <div className="CreateLoader" style={{
+                marginLeft: '8%',
+                marginTop: '6%',
+              }}>
+                <span className="loader"></span>
+                <h6>Please Wait,Loading PI...</h6>
+              </div>
+            )}
             {filteredPiNumbers.map((piNumberObj, index) => {
               const piNumber = piNumberObj.pi_number; // Get the pi_number from the object
               const isSelected = piNumber === selectedItem;

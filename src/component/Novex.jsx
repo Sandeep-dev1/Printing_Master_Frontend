@@ -1,6 +1,7 @@
-import react, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CgProfile } from "react-icons/cg";
+import { FaRegCopy } from "react-icons/fa";
 import { FiLogOut } from "react-icons/fi";
 import logo from "../assets/TagIDLogo.png";
 import { toast } from 'react-toastify';
@@ -19,6 +20,7 @@ const Novex = () => {
     const [selectedCustomer, setSelectedCustomer] = useState('ALL');
     const [selectedShift, setselectedShift] = useState("ALL");
     const [SelectedFIleType, setSelectedFIleType] = useState('');
+    const [isSplitValue, setIsSplitValue] = useState('false');
     const [XmlFile, setXmlFile] = useState('')
     const [userName, setUserName] = useState('');
     const [UserFirstName, setUserFirstName] = useState('');
@@ -40,6 +42,8 @@ const Novex = () => {
     const [Password, setPassword] = useState("");
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
     const [showLoader, setShowLoader] = useState(false);
+    const [ShowFgPage, setShowFgPage] = useState(false);
+    const [fgCodes, setFgCodes] = useState({});
     const [showLoaderForfile, setShowLoaderForFile] = useState(false);
     const [selectedData, setSelectedData] = useState(null);
     const [percentageDiff, setpercentageDiff] = useState(null);
@@ -87,11 +91,12 @@ const Novex = () => {
         //     return;
         // }
         setSelectedItem(piNumber);
+        setIsSplitValue('false');
         const selectedPi = filteredPiNumbers.find(item => item.pi_number === piNumber);
         if (selectedPi && selectedPi.status === 'To-Print') {
-            setIsUpdateDisabled(false); 
+            setIsUpdateDisabled(false);
         } else {
-            setIsUpdateDisabled(true); 
+            setIsUpdateDisabled(true);
         }
         setIsAllocateDisabled(false);
         setIsAllocateClicked(false)
@@ -174,16 +179,16 @@ const Novex = () => {
 
     useEffect(() => {
         if (MachineNO) {
-          if (["PL", "SIM", "CLS"].some((keyword) => MachineNO.includes(keyword))) {
-            navigate("/Pcs");
-          } else if (MachineNO.startsWith("NOVEX")) {
-            navigate("/Novex");
-          } else {
-            navigate("/Home");
-          }
+            if (["PL", "SIM", "CLS"].some((keyword) => MachineNO.includes(keyword))) {
+                navigate("/Pcs");
+            } else if (MachineNO.startsWith("NOVEX")) {
+                navigate("/Novex");
+            } else {
+                navigate("/Home");
+            }
         }
-      }, [MachineNO, navigate, UserRole]);
-      
+    }, [MachineNO, navigate, UserRole]);
+
 
     useEffect(() => {
 
@@ -277,13 +282,14 @@ const Novex = () => {
     const handleGenerated = async () => {
         setShowLoaderForFile(true);
         try {
-            console.log('fileOutputType', SelectedFIleType)
+            console.log('fileOutputType', SelectedFIleType,'| is_splitvalues',isSplitValue)
 
             const response = await axios.post(`${FileGeneration}/api/Printing_API/file_generation`,
                 {
                     "pi_number": selectedItem,
                     "file_output_type": SelectedFIleType,
-                    "machine": MachineNO
+                    "machine": MachineNO,
+                    "is_split": isSplitValue
                 },
                 {
                     headers: {
@@ -337,6 +343,130 @@ const Novex = () => {
 
 
     const handleAllocate = async () => {
+        setShowFgPage(true)
+        setIsAllocateDisabled(true);
+
+        // setShowLoader(true);
+
+        // // Convert selectedRows Set to an array and map to the required format
+        // const selectedData = Array.from(selectedRows).map(index => {
+        //     const detail = piDetails[index];
+        //     console.log("detail selected data ", detail)
+
+        //     let FileOutputType = '';
+        //     if (MachineNO.includes('PL')) {
+        //         FileOutputType = 'xml';
+        //     } else if (MachineNO.includes('SIM') || MachineNO.includes('CLS')) {
+        //         FileOutputType = 'excel';
+        //     }
+
+        //     return {
+        //         pi_number: selectedItem || '',
+        //         ean_number: detail.article_number || '',
+        //         purch_order: detail.purchorder || detail.category2 || detail.po_number || '',
+        //         quantity: detail.quantity || '',
+        //         file_output_type: FileOutputType,
+        //         machine: MachineNO || '',
+        //         version_no: '2.2.1',
+        //         operator: `${UserFirstName} ${userLastName}` || ''
+        //     };
+        // })
+
+        // const requestData = { insertData: selectedData };
+        // console.log("requestData EPC", requestData);
+
+        // try {
+        //     const response = await axios.post(`${Server}/api/Printing_API/epc_generation`, requestData, {
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         }
+        //     });
+
+        //     if (response.statusText === "OK") {
+        //         const epcData = response.data;
+        //         console.log("EPC Generated", epcData);
+        //         setIsAllocateClicked(true);
+        //         setIsUpdateDisabled(true);
+        //         setIsAllocateDisabled(true);
+        //         setGetEPC(epcData);
+
+        //         Swal.fire({
+        //             icon: 'success',
+        //             title: 'Success',
+        //             text: 'EPC Has Been Successfully Generated! Then click on update ',
+        //             showConfirmButton: false,
+        //             timer: 3000, // 3 seconds
+        //             background: '#f0f0f0',
+        //             customClass: {
+        //                 title: 'swal2-title',
+        //                 popup: 'swal2-popup',
+        //                 icon: 'swal2-icon'
+        //             }
+        //         });
+        //     } else {
+        //         toast.error('EPC Has Not Been Updated!');
+        //     }
+        // } catch (error) {
+        //     if (error.response.data.detail) {
+        //         toast.error(error.response.data.detail);
+        //     } else {
+        //         toast.error('An error occurred during login.');
+        //     }
+        //     console.error(error);
+        // } finally {
+        //     setShowLoader(false);
+        //     setRefetchData(true);
+        // }
+    };
+
+    const handleCopyFGCode = (sourceIndex) => {
+        const valueToCopy = fgCodes[sourceIndex];
+        // if (!valueToCopy || valueToCopy.length !== 2) {
+        //     Swal.fire("Invalid FG Code", "Enter a valid 2-digit number before copying.", "warning");
+        //     return;
+        // }
+
+        if (!valueToCopy || valueToCopy.length < 2 || valueToCopy.length > 3) {
+            Swal.fire("Invalid FG Code", "Enter a valid 2 or 3-digit number before copying.", "warning");
+            return;
+        }
+
+        setFgCodes((prev) => {
+            const updated = { ...prev };
+            selectedRows.forEach((i) => {
+                updated[i] = valueToCopy; // Copy to all selected
+            });
+            return updated;
+        });
+    };
+
+    const handleclosefg = async () => {
+        setShowFgPage(false)
+        setIsAllocateDisabled(false)
+    }
+
+
+    const handleFgCodeSubmit = async () => {
+        // 🔍 Find all invalid FG code rows
+        const invalidFGRows = Array.from(selectedRows).filter(
+            (index) => !fgCodes[index] || fgCodes[index].length < 2 || fgCodes[index].length > 3
+        );
+
+        if (invalidFGRows.length > 0) {
+            const rowDetails = invalidFGRows.map((index) => {
+                const detail = piDetails[index];
+                console.log('detail', detail)
+                return `Row ${index + 1} (Article: ${detail.article_number || "N/A"})`;
+            });
+
+            Swal.fire(
+                "Invalid FG Codes",
+                `\n\n${rowDetails.join("\n")}`,
+                "warning"
+            );
+            return;
+        }
+        setShowFgPage(false);
         setShowLoader(true);
 
         // Convert selectedRows Set to an array and map to the required format
@@ -353,6 +483,7 @@ const Novex = () => {
 
             return {
                 pi_number: selectedItem || '',
+                fg_code: fgCodes[index] || '',
                 ean_number: detail.article_number || '',
                 purch_order: detail.purchorder || detail.category2 || detail.po_number || '',
                 quantity: detail.quantity || '',
@@ -384,7 +515,7 @@ const Novex = () => {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success',
-                    text: 'EPC Has Been Successfully Generated! Then click on update ',
+                    text: 'Allocation & FG  Has Been Successfully Submited',
                     showConfirmButton: false,
                     timer: 3000, // 3 seconds
                     background: '#f0f0f0',
@@ -395,13 +526,13 @@ const Novex = () => {
                     }
                 });
             } else {
-                toast.error('EPC Has Not Been Updated!');
+                toast.error('Allocation & FG Has Not Been Submit !');
             }
         } catch (error) {
             if (error.response.data.detail) {
                 toast.error(error.response.data.detail);
             } else {
-                toast.error('An error occurred during login.');
+                toast.error('An error occurred during allocation & FG.');
             }
             console.error(error);
         } finally {
@@ -504,18 +635,18 @@ const Novex = () => {
 
             setSelectedItem('')
 
-            await logInsert(selectedData.pi_number, forceUpdateResponse.data.res_check.diff, percentageDiff);
+            await logInsert(forceUpdateData, forceUpdateResponse.data.res_check.diff, percentageDiff);
         } catch (error) {
             toast.error(error.response.data.detail);
             // console.error("Error during force update:", error);
         }
     };
 
-    const logInsert = async (pi_number, diff, percentageDiff) => {
+    const logInsert = async (forceUpdateData, diff, percentageDiff) => {
         console.log("percentageDiffinlog", percentageDiff)
         try {
             const LogInsertResponse = await axios.post(
-                `${LogInsert}/api/log_insert/?software=PrintingMaster&type=INFO&details=${UserFirstName} has Force Updated pi_number=${pi_number} Differences ${diff} Qty  Differences  ${percentageDiff} % .`,
+                `${LogInsert}/api/log_insert/?software=PrintingMaster&type=Force Updated&details=${UserFirstName} has Force Updated ${JSON.stringify(forceUpdateData)} Differences ${diff} Qty.`,
                 { headers: { 'Content-Type': 'application/json' } }
             );
             console.log('LogInsertResponse', LogInsertResponse.data.message);
@@ -653,6 +784,8 @@ const Novex = () => {
                 <>
                     <option value="">Select File Type</option>
                     <option value="SINGLE">SINGLE</option>
+                    <option value="SIZEWISE">SIZEWISE</option>
+                    <option value="pantone">PANTONE</option>
                 </>
             );
         }
@@ -691,7 +824,14 @@ const Novex = () => {
                 </>
             );
         }
-
+        if (selectedItem.startsWith('SN') || selectedItem.startsWith('FP') || selectedItem.startsWith('CG') || selectedItem.startsWith('IH') || selectedItem.startsWith('GC') || selectedItem.startsWith('SH') || selectedItem.startsWith('MN') || selectedItem.startsWith('CL')) {
+            return (
+                <>
+                    <option value="">Select File Type</option>
+                    <option value="SINGLE">SINGLE</option>
+                </>
+            );
+        }
         return <option value="">Select File Type</option>;
     };
 
@@ -701,7 +841,7 @@ const Novex = () => {
                 <div className='Loader_Overlay'>
                     <div className="CreateLoader">
                         <span className="loader"></span>
-                        {showLoader ? <h6>Please Wait, EPC Generated...</h6> : <h6>Please Wait, File Generated...</h6>}
+                        {showLoader ? <h6>Please Wait, Allocatting...</h6> : <h6>Please Wait, File Generating...</h6>}
                     </div>
                 </div>
             )}
@@ -722,6 +862,74 @@ const Novex = () => {
                     <button onClick={handlePasswordSubmit}>Submit</button>
                 </div>
             )}
+            {ShowFgPage && (
+                <div className="fg-prompt">
+                    <div className="fg-prompt-header">
+                        <h2>Enter FG Codes</h2>
+                        <button className="close-button-fg" onClick={handleclosefg}>
+                            <MdClose />
+                        </button>
+                    </div>
+
+                    <div className="fg-table-wrapper">
+                        <table className="fg-table">
+                            <thead>
+                                <tr>
+                                    <th>Sr No</th>
+                                    <th>FG Code</th>
+                                    <th>EAN Number</th>
+                                    <th>Purchase Order</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from(selectedRows).map((originalIndex, i) => {
+                                    const detail = piDetails[originalIndex] || {};
+
+                                    return (
+                                        <tr key={originalIndex}>
+                                            <td>{i + 1}</td>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    maxLength={3}
+                                                    value={fgCodes[originalIndex] || ""}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value.replace(/[^0-9]/g, "");
+                                                        setFgCodes((prev) => ({ ...prev, [originalIndex]: value }));
+                                                    }}
+                                                    placeholder="FG"
+                                                    className="fg-code-input"
+                                                />
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyFGCode(originalIndex)}
+                                                    style={{
+                                                        background: "transparent",
+                                                        border: "none",
+                                                        cursor: "pointer",
+                                                        fontSize: "1rem",
+                                                    }}
+                                                    title="Copy to selected rows"
+                                                >
+                                                    <FaRegCopy size={15} />
+                                                </button>
+                                            </td>
+                                            <td>{detail.article_number || ''}</td>
+                                            <td>{detail.purchorder || detail.category2 || detail.po_number || ''}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button onClick={handleFgCodeSubmit} className="submit-fg-button">
+                        Submit
+                    </button>
+                </div>
+            )}
+
             <div className='Pcs_Container'>
                 <div className='Pcs_Container_Header'>
                     <img src={logo} alt='TagId Logo' />
@@ -748,6 +956,11 @@ const Novex = () => {
                             <option value="IH">I Home</option>
                             <option value="CG">Creative Garments</option>
                             <option value="FP">Focus Prints</option>
+                            <option value="SN">Snitch</option>
+                            <option value="SH">Sheridan</option>
+                            <option value="MN">MANACA</option>
+                            <option value="CL">Continuity Label</option>
+
                         </select>
                     </div>
                     <div className="Pcs_Container_Header_companyName">
@@ -807,6 +1020,18 @@ const Novex = () => {
                                         {getOptions()}
                                     </select>
                                 </div>
+                                {SelectedFIleType && (
+                                    (selectedItem.startsWith('WEL') || selectedItem.startsWith('NV') || selectedItem.startsWith('HP')) && (
+                                        <div className="Pcs_Container_Grid_PI_details_fileType_is_split">
+                                            <label>XML in splits of 5000?</label>
+                                            <select value={isSplitValue} onChange={(e) => setIsSplitValue(e.target.value)}>
+                                                <option value="true">Yes</option>
+                                                <option value="false">No</option>
+                                            </select>
+                                        </div>
+                                    )
+                                )}
+
                                 {SelectedFIleType && (
                                     <div className='Pcs_Container_Grid_PI_details_GeneratedButton'>
                                         <button onClick={handleGenerated}>{MachineNO === "PL" ? ' Generate Xml File' : 'Generate Excel file'}</button>
