@@ -796,8 +796,20 @@ const Home = () => {
   };
 
   const handleCheckboxChange = (index) => {
-    const newSelectedRows = new Set(selectedRows);
     const selectedDetail = piDetails[index];
+
+    console.log("selected_details", selectedItem)
+    if (selectedItem.startsWith("GC")) {
+      const alreadySelected = selectedRows.size > 0 && !selectedRows.has(index);
+      if (alreadySelected) {
+        const firstSelectedIndex = Array.from(selectedRows)[0];
+        const firstSelectedArticle = piDetails[firstSelectedIndex]?.article_number || "";
+        toast.warn(`You have already selected, Article Number ${firstSelectedArticle}`);
+        return; 
+      }
+    }
+
+    const newSelectedRows = new Set(selectedRows);
     const hasToPrintSelected = Array.from(selectedRows).some(
       (i) => piDetails[i].status === "To-Print"
     );
@@ -999,7 +1011,10 @@ const Home = () => {
                         type="checkbox"
                         checked={selectedRows.size === piDetails.length}
                         onChange={handleSelectAllChange}
-                        disabled={hasToPrint} />
+                        disabled={
+                          selectedItem.startsWith("GC") ||
+                          hasToPrint
+                        } />
                       All
                     </th>
                     <th>FG Code</th>
@@ -1034,8 +1049,8 @@ const Home = () => {
                             type="checkbox"
                             checked={selectedRows.has(originalIndex)}
                             onChange={() => handleCheckboxChange(originalIndex)}
-                            disabled={isToPrint || hasToPrintSelected}
-                          />
+                            disabled={isToPrint || hasToPrintSelected} 
+                            />
                         </td>
                         <td style={{ display: "flex", alignItems: "center", gap: "2px" }}>
                           <input
